@@ -24,9 +24,9 @@ func Publish(protocol string, port int, w *world.World) {
 	log.Println("PUB socket bound to", endpoint)
 
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		state := w.StateJson()
-		log.Println("Publishing", state)
+		log.Println("Publishing super", state)
 		publisher.Send(state, 0)
 	}
 }
