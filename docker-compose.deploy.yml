@@ -1,0 +1,2 @@
+looper:
+  image: $DOCKER_REGISTRY/looper:$SERVICE_VERSION
