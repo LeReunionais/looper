@@ -13,4 +13,6 @@ WORKDIR /go/src/github.com/LeReunionais/looper
 RUN go get -d -v
 RUN go install -v
 
+EXPOSE 6000
+
 CMD looper

@@ -1,5 +1,7 @@
 looper:
   build: .
+  ports: 
+    - "6000:6000"
   restart: always
 test:
   build: .
