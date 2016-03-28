@@ -3,6 +3,9 @@ looper:
   ports: 
     - "6000:6000"
   restart: always
+  environment:
+    - REGISTRY_HOST
+    - SERVICE_HOST
 test:
   build: .
   command: echo "No tests defined"
