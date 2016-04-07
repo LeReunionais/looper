@@ -41,9 +41,9 @@ func Init() World {
 func (w *World) Update(delta time.Duration) {
 	w.Lock()
 	w.lastUpdate = w.lastUpdate.Add(delta)
-	sec := float64(w.lastUpdate.Second()) * math.Pi / 30
-	x := math.Cos(sec)
-	p := Vector3{x, sec, 0}
+	t := float64(w.lastUpdate.Second()) * math.Pi / 30
+	y := math.Cos(t)
+	p := Vector3{t, y, 0}
 	v := Vector3{0, 0, 0}
 	point := Particle{p, v, 1}
 	w.Particles = []Particle{point}
