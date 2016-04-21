@@ -2,11 +2,24 @@ package interfaces
 
 import (
 	"container/ring"
+	"encoding/json"
 	"github.com/LeReunionais/looper/world"
 	zmq "github.com/pebbe/zmq4"
 	"log"
-	"strconv"
 )
+
+type request struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  string `json:"params"`
+	Id      string `json:"id"`
+}
+
+type reply struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  string `json:"jsonrpc"`
+	Id      string `json:"id"`
+}
 
 func Integrate(endpoint string) {
 	replier, errSock := zmq.NewSocket(zmq.REP)
@@ -18,23 +31,24 @@ func Integrate(endpoint string) {
 	replier.Bind(endpoint)
 	log.Println("replier bound to", endpoint)
 
-	r := ring.New(100)
-	for i := 0; i < r.Len(); i++ {
-		r.Value = i
-		r = r.Next()
-	}
-	for r.Len() > 0 {
-		message, _ := replier.Recv(0)
-		if message == "ready" {
+	workCount := 0
+	for workCount == 0 {
+		msg := new(request)
+		received, _ := replier.Recv(0)
+		json.Unmarshal([]byte(received), msg)
+
+		if msg.Method == "ready" {
 			log.Println("worker ready, we send him some work")
-		} else {
-			work_index, _ := strconv.Atoi(message)
-			log.Println("one more work done")
-			r.Unlink(work_index)
+			work := reply{"2.0", "some work", msg.Id}
+			workJson, _ := json.Marshal(work)
+			replier.Send(string(workJson), 0)
+		} else if msg.Method == "result" {
+			log.Println("result", msg.Params)
 			replier.Send("thanks", 0)
+			workCount++
 		}
-		log.Println(r.Len())
 	}
+
 	log.Println("Finish all work")
 }
 

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"container/ring"
+	"encoding/json"
 	"github.com/LeReunionais/looper/world"
 	zmq "github.com/pebbe/zmq4"
 	"log"
@@ -16,29 +17,32 @@ func worker(name, endpoint string) {
 	requester.Connect(endpoint)
 	rand.Seed(time.Now().Unix())
 	work_done := 0
-	for {
-		requester.Send("ready", 0)
-		log.Println(name, "ready for work")
-		message, _ := requester.Recv(0)
-		log.Println(message, "received by", name)
-		time.Sleep(time.Duration(rand.Int63n(500)) * time.Millisecond)
-		requester.Send("result", 0)
-		work_done++
-		log.Println(name, "sent result")
-		requester.Recv(0)
-		log.Println(name, "got a thank you note")
-		log.Println(name, "has done", work_done, "work")
-	}
+
+	ready := request{"2.0", "ready", "", "1"}
+	readyJson, _ := json.Marshal(ready)
+	requester.Send(string(readyJson), 0)
+	log.Println(name, "ready for work")
+
+	message, _ := requester.Recv(0)
+	log.Println(message, "received by", name)
+	time.Sleep(time.Duration(rand.Int63n(500)) * time.Millisecond)
+
+	result := request{"2.0", "result", "", "1"}
+	resultJson, _ := json.Marshal(result)
+	requester.Send(string(resultJson), 0)
+	work_done++
+	log.Println(name, "sent result")
+	requester.Recv(0)
+	log.Println(name, "got a thank you note")
+	log.Println(name, "has done", work_done, "work")
 }
 
 func TestIntegrate(t *testing.T) {
-	//go worker("Joe", "ipc://testing.integrator")
+	go worker("Joe", "ipc://testing.integrator")
+	Integrate("ipc://testing.integrator")
 	//go worker("Ringo", "ipc://testing.integrator")
 	//go worker("Harry", "ipc://testing.integrator")
 	//go worker("George", "ipc://testing.integrator")
-	//Integrate("ipc://testing.integrator")
-	//i := new(work)
-	//log.Println(i)
 }
 
 func TestFindNextWorkRing(t *testing.T) {
