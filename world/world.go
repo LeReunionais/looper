@@ -41,7 +41,7 @@ func Init() World {
 func (w *World) Update(delta time.Duration) {
 	w.Lock()
 	w.lastUpdate = w.lastUpdate.Add(delta)
-	t := float64(w.lastUpdate.Second()) * math.Pi / 30
+	t := float64(w.lastUpdate.UnixNano()) * 0.0000000001 * math.Pi / 30
 	y := math.Cos(t)
 	p := Vector3{t, y, 0}
 	v := Vector3{0, 0, 0}
