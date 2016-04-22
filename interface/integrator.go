@@ -11,8 +11,21 @@ import (
 type request struct {
 	Jsonrpc string `json:"jsonrpc"`
 	Method  string `json:"method"`
-	Params  string `json:"params"`
 	Id      string `json:"id"`
+}
+
+type ready_request struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Name    string `json:"params"`
+	Id      string `json:"id"`
+}
+
+type result_request struct {
+	Jsonrpc    string         `json:"jsonrpc"`
+	Method     string         `json:"method"`
+	Integrated world.Particle `json:"params"`
+	Id         string         `json:"id"`
 }
 
 type reply struct {
@@ -21,7 +34,7 @@ type reply struct {
 	Id      string         `json:"id"`
 }
 
-func Integrate(endpoint string) {
+func Integrate(endpoint string, works []world.Particle) []world.Particle {
 	replier, errSock := zmq.NewSocket(zmq.REP)
 	defer replier.Close()
 	if errSock != nil {
@@ -31,32 +44,45 @@ func Integrate(endpoint string) {
 	replier.Bind(endpoint)
 	log.Println("replier bound to", endpoint)
 
-	workCount := 0
-	for workCount < 10 {
+	r := ring.New(len(works))
+	for _, p := range works {
+		r.Value = work{p, nil}
+		r = r.Next()
+	}
+
+	r, no_work_remaining := find_next_work(r)
+	for !no_work_remaining {
 		msg := new(request)
 		received, _ := replier.Recv(0)
 		json.Unmarshal([]byte(received), msg)
 
 		if msg.Method == "ready" {
+			ready_msg := new(ready_request)
+			json.Unmarshal([]byte(received), ready_msg)
 			log.Println("worker ready, we send him some work")
-			p_to_integrate := world.Particle{
-				world.Vector3{0, 0, 0},
-				world.Vector3{0, 0, 0},
-				1.0,
-			}
-			work := reply{"2.0", p_to_integrate, msg.Id}
+			p_to_integrate, _ := r.Value.(work)
+			work := reply{"2.0", p_to_integrate.p, msg.Id}
 			workJson, _ := json.Marshal(work)
 			replier.Send(string(workJson), 0)
+			r, no_work_remaining = find_next_work(r)
 		} else if msg.Method == "result" {
-			log.Println("result", msg.Params)
-			integrated_p := new(world.Particle)
-			json.Unmarshal([]byte(msg.Params), integrated_p)
+			result_msg := new(result_request)
+			json.Unmarshal([]byte(received), result_msg)
+			integrated_p := result_msg.Integrated
+			current_work, _ := r.Value.(work)
+			current_work.p_next = &integrated_p
+			r.Value = current_work
 			replier.Send("thanks", 0)
-			workCount++
 		}
 	}
 
 	log.Println("Finish all work")
+
+	integrated_particules := make([]world.Particle, r.Len())
+	for i := 0; i < r.Len(); i++ {
+		integrated_particules[i] = *r.Value.(work).p_next
+	}
+	return integrated_particules
 }
 
 type work struct {

@@ -19,22 +19,21 @@ func worker(name, endpoint string) {
 	work_done := 0
 
 	for {
-		ready := request{"2.0", "ready", "", "1"}
+		ready := ready_request{"2.0", "ready", "", "1"}
 		readyJson, _ := json.Marshal(ready)
 		requester.Send(string(readyJson), 0)
 		log.Println(name, "ready for work")
 
 		message, _ := requester.Recv(0)
 		log.Println(message, "received by", name)
-		time.Sleep(time.Duration(rand.Int63n(500)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Int63n(1500)) * time.Millisecond)
 
 		integrated_p := world.Particle{
 			world.Vector3{1, 0, 0},
 			world.Vector3{1, 0, 0},
-			1.0,
+			2.0,
 		}
-		integrated_p_json, _ := json.Marshal(integrated_p)
-		result := request{"2.0", "result", string(integrated_p_json), "1"}
+		result := result_request{"2.0", "result", integrated_p, "1"}
 		resultJson, _ := json.Marshal(result)
 		requester.Send(string(resultJson), 0)
 		work_done++
@@ -46,11 +45,26 @@ func worker(name, endpoint string) {
 }
 
 func TestIntegrate(t *testing.T) {
+	particule_1 := world.Particle{Position: world.Vector3{1, 0, 0}}
+	particule_2 := world.Particle{Position: world.Vector3{2, 0, 0}}
+	particule_3 := world.Particle{Position: world.Vector3{3, 0, 0}}
+	particule_4 := world.Particle{Position: world.Vector3{4, 0, 0}}
+	particule_5 := world.Particle{Position: world.Vector3{5, 0, 0}}
+	particules := []world.Particle{
+		particule_1,
+		particule_2,
+		particule_3,
+		particule_4,
+		particule_5,
+	}
 	go worker("Joe", "ipc://testing.integrator")
-	Integrate("ipc://testing.integrator")
-	//go worker("Ringo", "ipc://testing.integrator")
-	//go worker("Harry", "ipc://testing.integrator")
-	//go worker("George", "ipc://testing.integrator")
+	go worker("Ringo", "ipc://testing.integrator")
+	go worker("Harry", "ipc://testing.integrator")
+	go worker("George", "ipc://testing.integrator")
+	result := Integrate("ipc://testing.integrator", particules)
+	for _, p := range result {
+		log.Println(p)
+	}
 }
 
 func TestFindNextWorkRing(t *testing.T) {

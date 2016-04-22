@@ -15,8 +15,8 @@ type Vector3 struct {
 
 type Particle struct {
 	Position    Vector3 `json:"position"`
-	velocity    Vector3
-	inverseMass float64
+	Velocity    Vector3 `json:"velocity"`
+	InverseMass float64 `json:"inverseMass"`
 }
 
 type World struct {
