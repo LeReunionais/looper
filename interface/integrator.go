@@ -16,9 +16,9 @@ type request struct {
 }
 
 type reply struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Result  string `json:"jsonrpc"`
-	Id      string `json:"id"`
+	Jsonrpc string         `json:"jsonrpc"`
+	Result  world.Particle `json:"result"`
+	Id      string         `json:"id"`
 }
 
 func Integrate(endpoint string) {
@@ -32,18 +32,25 @@ func Integrate(endpoint string) {
 	log.Println("replier bound to", endpoint)
 
 	workCount := 0
-	for workCount == 0 {
+	for workCount < 10 {
 		msg := new(request)
 		received, _ := replier.Recv(0)
 		json.Unmarshal([]byte(received), msg)
 
 		if msg.Method == "ready" {
 			log.Println("worker ready, we send him some work")
-			work := reply{"2.0", "some work", msg.Id}
+			p_to_integrate := world.Particle{
+				world.Vector3{0, 0, 0},
+				world.Vector3{0, 0, 0},
+				1.0,
+			}
+			work := reply{"2.0", p_to_integrate, msg.Id}
 			workJson, _ := json.Marshal(work)
 			replier.Send(string(workJson), 0)
 		} else if msg.Method == "result" {
 			log.Println("result", msg.Params)
+			integrated_p := new(world.Particle)
+			json.Unmarshal([]byte(msg.Params), integrated_p)
 			replier.Send("thanks", 0)
 			workCount++
 		}
