@@ -9,5 +9,6 @@ type Vector3 struct {
 type Particle struct {
 	Position    Vector3 `json:"position"`
 	Velocity    Vector3 `json:"velocity"`
+	Force       Vector3 `json:"force"`
 	InverseMass float64 `json:"inverseMass"`
 }
