@@ -21,11 +21,12 @@ func main() {
 	go interfaces.Publish("tcp", WORLD_PUBLICATION_PORT, &w)
 	register()
 	INTEGRATOR_ENDPOINT := "tcp://*:" + strconv.Itoa(INTEGRATOR_PORT)
+	replier := interfaces.Init(INTEGRATOR_ENDPOINT)
 	for {
 		time.Sleep(100 * time.Millisecond)
 		end := time.Now()
 		delta := end.Sub(start)
-		updated_particles := interfaces.Integrate(INTEGRATOR_ENDPOINT, w.Particles, delta)
+		updated_particles := interfaces.Integrate(*replier, w.Particles, delta)
 		w.Particles = updated_particles
 		start = end
 	}

@@ -37,12 +37,11 @@ type reply struct {
 
 type reply_result struct {
 	Particle common.Particle `json:"particle"`
-	Delta    time.Duration   `json:"delta"`
+	Delta    float64         `json:"delta"`
 }
 
-func Integrate(endpoint string, works []common.Particle, delta time.Duration) []common.Particle {
+func Init(endpoint string) *zmq.Socket {
 	replier, errSock := zmq.NewSocket(zmq.REP)
-	defer replier.Close()
 	if errSock != nil {
 		log.Fatal(errSock)
 	}
@@ -50,9 +49,13 @@ func Integrate(endpoint string, works []common.Particle, delta time.Duration) []
 	replier.Bind(endpoint)
 	log.Println("replier bound to", endpoint)
 
+	return replier
+}
+func Integrate(replier zmq.Socket, works []common.Particle, delta time.Duration) []common.Particle {
+
 	r := ring.New(len(works))
 	for _, p := range works {
-		rr := reply_result{p, delta}
+		rr := reply_result{p, delta.Seconds()}
 		r.Value = work{rr, nil}
 		r = r.Next()
 	}
@@ -63,6 +66,7 @@ func Integrate(endpoint string, works []common.Particle, delta time.Duration) []
 		received, _ := replier.Recv(0)
 		json.Unmarshal([]byte(received), msg)
 		if msg.Method == "ready" {
+			log.Println("received ready")
 			ready_msg := new(ready_request)
 			json.Unmarshal([]byte(received), ready_msg)
 			log.Println("worker ready, we send him some work")
@@ -71,6 +75,7 @@ func Integrate(endpoint string, works []common.Particle, delta time.Duration) []
 			workJson, _ := json.Marshal(work)
 			replier.Send(string(workJson), 0)
 		} else if msg.Method == "result" {
+			log.Println("received result")
 			result_msg := new(result_request)
 			json.Unmarshal([]byte(received), result_msg)
 			integrated_p := result_msg.Integrated
