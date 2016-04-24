@@ -70,7 +70,6 @@ func Integrate(endpoint string, works []common.Particle, delta time.Duration) []
 			work := reply{"2.0", p_to_integrate.p, msg.Id}
 			workJson, _ := json.Marshal(work)
 			replier.Send(string(workJson), 0)
-			r, no_work_remaining = find_next_work(r)
 		} else if msg.Method == "result" {
 			result_msg := new(result_request)
 			json.Unmarshal([]byte(received), result_msg)
@@ -80,6 +79,7 @@ func Integrate(endpoint string, works []common.Particle, delta time.Duration) []
 			r.Value = current_work
 			replier.Send("thanks", 0)
 		}
+		r, no_work_remaining = find_next_work(r)
 	}
 
 	log.Println("Finish all work")
