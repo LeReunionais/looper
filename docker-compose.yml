@@ -2,6 +2,7 @@ looper:
   build: .
   ports: 
     - "6000:6000"
+    - "6001:6001"
   restart: always
   environment:
     - REGISTRY_HOST

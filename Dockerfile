@@ -14,5 +14,6 @@ RUN go get -d -v
 RUN go install -v
 
 EXPOSE 6000
+EXPOSE 6001
 
 CMD looper
