@@ -6,35 +6,50 @@ import (
 	"github.com/LeReunionais/service"
 	"log"
 	"os"
+	"strconv"
 	"time"
 )
+
+const REGISTRY_PORT = 3001
+const WORLD_PUBLICATION_PORT = 6000
+const INTEGRATOR_PORT = 6001
 
 func main() {
 	w := world.Init()
 	log.Printf("Looper - world initialized")
 	start := time.Now()
-	go interfaces.Publish("tcp", 6000, &w)
+	go interfaces.Publish("tcp", WORLD_PUBLICATION_PORT, &w)
 	register()
+	INTEGRATOR_ENDPOINT := "tcp://*:" + strconv.Itoa(INTEGRATOR_PORT)
 	for {
 		time.Sleep(100 * time.Millisecond)
 		end := time.Now()
 		delta := end.Sub(start)
-		w.Update(delta)
+		updated_particles := interfaces.Integrate(INTEGRATOR_ENDPOINT, w.Particles, delta)
+		w.Particles = updated_particles
 		start = end
 	}
 }
 
 func register() {
 	host, registry := extract_env()
-	endpoint := "tcp://" + registry + ":3001"
-	port := 6000
+	registry_endpoint := "tcp://" + registry + ":" + strconv.Itoa(REGISTRY_PORT)
+
 	world := service.Service{
 		"world",
 		host,
 		"PUB",
-		port,
+		WORLD_PUBLICATION_PORT,
 	}
-	service.Register(endpoint, world)
+	service.Register(registry_endpoint, world)
+
+	integrator := service.Service{
+		"integrator",
+		host,
+		"REP",
+		INTEGRATOR_PORT,
+	}
+	service.Register(registry_endpoint, integrator)
 }
 
 func extract_env() (host, registry string) {

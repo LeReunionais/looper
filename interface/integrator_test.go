@@ -3,7 +3,7 @@ package interfaces
 import (
 	"container/ring"
 	"encoding/json"
-	"github.com/LeReunionais/looper/world"
+	"github.com/LeReunionais/looper/common"
 	zmq "github.com/pebbe/zmq4"
 	"log"
 	"math/rand"
@@ -28,9 +28,9 @@ func worker(name, endpoint string) {
 		log.Println(message, "received by", name)
 		time.Sleep(time.Duration(rand.Int63n(1500)) * time.Millisecond)
 
-		integrated_p := world.Particle{
-			world.Vector3{1, 0, 0},
-			world.Vector3{1, 0, 0},
+		integrated_p := common.Particle{
+			common.Vector3{1, 0, 0},
+			common.Vector3{1, 0, 0},
 			2.0,
 		}
 		result := result_request{"2.0", "result", integrated_p, "1"}
@@ -45,12 +45,12 @@ func worker(name, endpoint string) {
 }
 
 func TestIntegrate(t *testing.T) {
-	particule_1 := world.Particle{Position: world.Vector3{1, 0, 0}}
-	particule_2 := world.Particle{Position: world.Vector3{2, 0, 0}}
-	particule_3 := world.Particle{Position: world.Vector3{3, 0, 0}}
-	particule_4 := world.Particle{Position: world.Vector3{4, 0, 0}}
-	particule_5 := world.Particle{Position: world.Vector3{5, 0, 0}}
-	particules := []world.Particle{
+	particule_1 := common.Particle{Position: common.Vector3{1, 0, 0}}
+	particule_2 := common.Particle{Position: common.Vector3{2, 0, 0}}
+	particule_3 := common.Particle{Position: common.Vector3{3, 0, 0}}
+	particule_4 := common.Particle{Position: common.Vector3{4, 0, 0}}
+	particule_5 := common.Particle{Position: common.Vector3{5, 0, 0}}
+	particules := []common.Particle{
 		particule_1,
 		particule_2,
 		particule_3,
@@ -61,22 +61,23 @@ func TestIntegrate(t *testing.T) {
 	go worker("Ringo", "ipc://testing.integrator")
 	go worker("Harry", "ipc://testing.integrator")
 	go worker("George", "ipc://testing.integrator")
-	result := Integrate("ipc://testing.integrator", particules)
+	result := Integrate("ipc://testing.integrator", particules, time.Second)
 	for _, p := range result {
 		log.Println(p)
 	}
 }
 
 func TestFindNextWorkRing(t *testing.T) {
-	particule_1 := world.Particle{Position: world.Vector3{1, 0, 0}}
-	particule_2 := world.Particle{Position: world.Vector3{2, 0, 0}}
-	particule_3 := world.Particle{Position: world.Vector3{3, 0, 0}}
-	particule_4 := world.Particle{Position: world.Vector3{4, 0, 0}}
-	particule_5 := world.Particle{Position: world.Vector3{5, 0, 0}}
+	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second}
+	particule_2 := reply_result{common.Particle{Position: common.Vector3{2, 0, 0}}, time.Second}
+	particule_3 := reply_result{common.Particle{Position: common.Vector3{3, 0, 0}}, time.Second}
+	particule_4 := reply_result{common.Particle{Position: common.Vector3{4, 0, 0}}, time.Second}
+	particule_5 := reply_result{common.Particle{Position: common.Vector3{5, 0, 0}}, time.Second}
+	var particule_3_result = new(common.Particle)
 	particules := []work{
 		work{particule_1, nil},
 		work{particule_2, nil},
-		work{particule_3, &particule_3},
+		work{particule_3, particule_3_result},
 		work{particule_4, nil},
 		work{particule_5, nil},
 	}
@@ -95,25 +96,30 @@ func TestFindNextWorkRing(t *testing.T) {
 	for _, c := range cases {
 		r, _ = find_next_work(r)
 		todo, _ := r.Value.(work)
-		if todo.p.Position.X != float64(c.want) {
-			t.Errorf("find_next_work(r).p.Position.X return %f, want %d", todo.p.Position.X, c.want)
+		if todo.p.Particle.Position.X != float64(c.want) {
+			t.Errorf("find_next_work(r).p.Position.X return %f, want %d", todo.p.Particle.Position.X, c.want)
 		}
 	}
 
 }
 
 func TestFindNextWorkRingNoMoreWorkd(t *testing.T) {
-	particule_1 := world.Particle{Position: world.Vector3{1, 0, 0}}
-	particule_2 := world.Particle{Position: world.Vector3{2, 0, 0}}
-	particule_3 := world.Particle{Position: world.Vector3{3, 0, 0}}
-	particule_4 := world.Particle{Position: world.Vector3{4, 0, 0}}
-	particule_5 := world.Particle{Position: world.Vector3{5, 0, 0}}
+	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second}
+	particule_2 := reply_result{common.Particle{Position: common.Vector3{2, 0, 0}}, time.Second}
+	particule_3 := reply_result{common.Particle{Position: common.Vector3{3, 0, 0}}, time.Second}
+	particule_4 := reply_result{common.Particle{Position: common.Vector3{4, 0, 0}}, time.Second}
+	particule_5 := reply_result{common.Particle{Position: common.Vector3{5, 0, 0}}, time.Second}
+	var particule_1_result = new(common.Particle)
+	var particule_2_result = new(common.Particle)
+	var particule_3_result = new(common.Particle)
+	var particule_4_result = new(common.Particle)
+	var particule_5_result = new(common.Particle)
 	particules := []work{
-		work{particule_1, &particule_1},
-		work{particule_2, &particule_2},
-		work{particule_3, &particule_3},
-		work{particule_4, &particule_4},
-		work{particule_5, &particule_5},
+		work{particule_1, particule_1_result},
+		work{particule_2, particule_2_result},
+		work{particule_3, particule_3_result},
+		work{particule_4, particule_4_result},
+		work{particule_5, particule_5_result},
 		work{particule_5, nil},
 	}
 	r := ring.New(len(particules))
@@ -126,7 +132,7 @@ func TestFindNextWorkRingNoMoreWorkd(t *testing.T) {
 		t.Errorf("There should be some work available")
 	}
 	todo, _ := r.Value.(work)
-	todo.p_next = &particule_5
+	todo.p_next = particule_5_result
 	r.Value = todo
 
 	_, no_more_work = find_next_work(r)

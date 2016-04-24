@@ -3,9 +3,10 @@ package interfaces
 import (
 	"container/ring"
 	"encoding/json"
-	"github.com/LeReunionais/looper/world"
+	"github.com/LeReunionais/looper/common"
 	zmq "github.com/pebbe/zmq4"
 	"log"
+	"time"
 )
 
 type request struct {
@@ -22,19 +23,24 @@ type ready_request struct {
 }
 
 type result_request struct {
-	Jsonrpc    string         `json:"jsonrpc"`
-	Method     string         `json:"method"`
-	Integrated world.Particle `json:"params"`
-	Id         string         `json:"id"`
+	Jsonrpc    string          `json:"jsonrpc"`
+	Method     string          `json:"method"`
+	Integrated common.Particle `json:"params"`
+	Id         string          `json:"id"`
 }
 
 type reply struct {
-	Jsonrpc string         `json:"jsonrpc"`
-	Result  world.Particle `json:"result"`
-	Id      string         `json:"id"`
+	Jsonrpc string       `json:"jsonrpc"`
+	Result  reply_result `json:"result"`
+	Id      string       `json:"id"`
 }
 
-func Integrate(endpoint string, works []world.Particle) []world.Particle {
+type reply_result struct {
+	Particle common.Particle `json:"particle"`
+	Delta    time.Duration   `json:"delta"`
+}
+
+func Integrate(endpoint string, works []common.Particle, delta time.Duration) []common.Particle {
 	replier, errSock := zmq.NewSocket(zmq.REP)
 	defer replier.Close()
 	if errSock != nil {
@@ -46,7 +52,8 @@ func Integrate(endpoint string, works []world.Particle) []world.Particle {
 
 	r := ring.New(len(works))
 	for _, p := range works {
-		r.Value = work{p, nil}
+		rr := reply_result{p, delta}
+		r.Value = work{rr, nil}
 		r = r.Next()
 	}
 
@@ -55,7 +62,6 @@ func Integrate(endpoint string, works []world.Particle) []world.Particle {
 		msg := new(request)
 		received, _ := replier.Recv(0)
 		json.Unmarshal([]byte(received), msg)
-
 		if msg.Method == "ready" {
 			ready_msg := new(ready_request)
 			json.Unmarshal([]byte(received), ready_msg)
@@ -78,7 +84,7 @@ func Integrate(endpoint string, works []world.Particle) []world.Particle {
 
 	log.Println("Finish all work")
 
-	integrated_particules := make([]world.Particle, r.Len())
+	integrated_particules := make([]common.Particle, r.Len())
 	for i := 0; i < r.Len(); i++ {
 		integrated_particules[i] = *r.Value.(work).p_next
 	}
@@ -86,8 +92,8 @@ func Integrate(endpoint string, works []world.Particle) []world.Particle {
 }
 
 type work struct {
-	p      world.Particle
-	p_next *world.Particle
+	p      reply_result
+	p_next *common.Particle
 }
 
 func find_next_work(r *ring.Ring) (*ring.Ring, bool) {
