@@ -16,7 +16,8 @@ type World struct {
 func Init() World {
 	p := common.Vector3{0, 0, 0}
 	v := common.Vector3{0, 0, 0}
-	point := common.Particle{p, v, 1}
+	f := common.Vector3{0, 0, 0}
+	point := common.Particle{p, v, f, 1}
 
 	w := World{
 		Particles:  []common.Particle{point},
