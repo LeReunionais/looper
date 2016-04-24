@@ -55,7 +55,7 @@ func register() {
 func extract_env() (host, registry string) {
 	host = os.Getenv("SERVICE_HOST")
 	if host == "" {
-		log.Fatal("Environment variable SERVICE_HOST is not defined. Please set it up. This variable defined the host on which is published the service")
+		log.Fatal("Environment variable SERVICE_HOST is not defined. Please set it up. This variable defined the host on which is published the service.")
 	}
 
 	registry = os.Getenv("REGISTRY_HOST")
