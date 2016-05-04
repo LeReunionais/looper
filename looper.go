@@ -11,6 +11,7 @@ import (
 )
 
 const REGISTRY_PORT = 3001
+const LISTENING_PORT = 3003
 const WORLD_PUBLICATION_PORT = 6000
 const INTEGRATOR_PORT = 6001
 
@@ -19,7 +20,9 @@ func main() {
 	log.Printf("Looper - world initialized")
 	start := time.Now()
 	go interfaces.Publish("tcp", WORLD_PUBLICATION_PORT, &w)
+
 	register()
+
 	INTEGRATOR_ENDPOINT := "tcp://*:" + strconv.Itoa(INTEGRATOR_PORT)
 	replier := interfaces.Init(INTEGRATOR_ENDPOINT)
 	for {
@@ -35,6 +38,7 @@ func main() {
 func register() {
 	host, registry := extract_env()
 	registry_endpoint := "tcp://" + registry + ":" + strconv.Itoa(REGISTRY_PORT)
+	listening_endpoint := "tcp://" + registry + ":" + strconv.Itoa(LISTENING_PORT)
 
 	world := service.Service{
 		"world",
@@ -43,6 +47,7 @@ func register() {
 		WORLD_PUBLICATION_PORT,
 	}
 	service.Register(registry_endpoint, world)
+	go service.Listen(registry_endpoint, listening_endpoint, world)
 
 	integrator := service.Service{
 		"integrator",
@@ -51,6 +56,7 @@ func register() {
 		INTEGRATOR_PORT,
 	}
 	service.Register(registry_endpoint, integrator)
+	go service.Listen(registry_endpoint, listening_endpoint, integrator)
 }
 
 func extract_env() (host, registry string) {
