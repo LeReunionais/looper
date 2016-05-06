@@ -1,10 +1,10 @@
 package interfaces
 
 import (
-	"container/ring"
 	"encoding/json"
-	"github.com/LeReunionais/looper/common"
+	c "github.com/LeReunionais/looper/common"
 	zmq "github.com/pebbe/zmq4"
+	"github.com/satori/go.uuid"
 	"log"
 	"time"
 )
@@ -15,29 +15,44 @@ type request struct {
 	Id      string `json:"id"`
 }
 
-type ready_request struct {
+type readyRequest struct {
 	Jsonrpc string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Name    string `json:"params"`
 	Id      string `json:"id"`
 }
 
-type result_request struct {
-	Jsonrpc    string          `json:"jsonrpc"`
-	Method     string          `json:"method"`
-	Integrated common.Particle `json:"params"`
-	Id         string          `json:"id"`
+type readyReply struct {
+	Jsonrpc string      `json:"jsonrpc"`
+	Result  readyResult `json:"result"`
+	Id      string      `json:"id"`
 }
 
-type reply struct {
-	Jsonrpc string       `json:"jsonrpc"`
-	Result  reply_result `json:"result"`
-	Id      string       `json:"id"`
+type readyResult struct {
+	Particle c.Particle `json:"particle"`
+	Delta    float64    `json:"delta"`
+	WorkId   uuid.UUID  `json:"workId"`
 }
 
-type reply_result struct {
-	Particle common.Particle `json:"particle"`
-	Delta    float64         `json:"delta"`
+type resultRequest struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  struct {
+		Particle c.Particle `json:"particle"`
+		WorkId   uuid.UUID  `json:"workId"`
+	} `json:"params"`
+	Id string `json:"id"`
+}
+
+type resultReply struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  string `json:"result"`
+	Id      string `json:"id"`
+}
+
+type work struct {
+	uuid.UUID
+	c.Particle
 }
 
 func Init(endpoint string) *zmq.Socket {
@@ -45,18 +60,90 @@ func Init(endpoint string) *zmq.Socket {
 	if errSock != nil {
 		log.Fatal(errSock)
 	}
-	log.Println("Socket created")
-	replier.Bind(endpoint)
+	log.Println("replier created")
+	errBind := replier.Bind(endpoint)
+	if errBind != nil {
+		log.Fatal(errBind)
+	}
 	log.Println("replier bound to", endpoint)
 
 	return replier
 }
+
+func find_next_index(to_integrate []work, integrated map[uuid.UUID]c.Particle, index int) (int, bool) {
+	total := len(to_integrate)
+	i := 0
+	for {
+		if _, ok := integrated[to_integrate[index%total].UUID]; !ok {
+			break
+		}
+		if i == total {
+			break
+		}
+		index++
+		i++
+	}
+	return index % total, i != total
+}
+
+func Update(replier zmq.Socket, particles []c.Particle, delta time.Duration) []c.Particle {
+	log.Println("Init data stucture")
+	to_integrate := make([]work, len(particles))
+	integrated := make(map[uuid.UUID]c.Particle)
+
+	for _, p := range particles {
+		work_id := uuid.NewV4()
+		w := work{work_id, p}
+		to_integrate = append(to_integrate, w)
+	}
+
+	log.Println("Loop and request for integration")
+	iterator_index, work_pending := find_next_index(to_integrate, integrated, 0)
+	for work_pending {
+		req_msg, _ := replier.Recv(0)
+		log.Println("request received", req_msg)
+		req := new(request)
+		json.Unmarshal([]byte(req_msg), req)
+		log.Println("Received", req.Method, "request")
+		if req.Method == "ready" {
+			worker_ready_req := new(readyRequest)
+			json.Unmarshal([]byte(req_msg), worker_ready_req)
+			log.Println("Worker", worker_ready_req.Name, "ready.")
+
+			next_p := to_integrate[iterator_index].Particle
+			next_UUID := to_integrate[iterator_index].UUID
+			worker_ready_rep := readyReply{
+				"2.0",
+				readyResult{next_p, delta.Seconds(), next_UUID},
+				worker_ready_req.Id,
+			}
+			worker_ready_rep_json, _ := json.Marshal(worker_ready_rep)
+			replier.Send(string(worker_ready_rep_json), 0)
+		} else if req.Method == "result" {
+			result_req := new(resultRequest)
+			json.Unmarshal([]byte(req_msg), result_req)
+		}
+		iterator_index, work_pending = find_next_index(to_integrate, integrated, iterator_index)
+	}
+
+	results := make([]c.Particle, len(particles))
+	for _, p := range integrated {
+		results = append(results, p)
+	}
+	return results
+}
+
+/*
 func Integrate(replier zmq.Socket, works []common.Particle, delta time.Duration) []common.Particle {
 
 	r := ring.New(len(works))
+	work_map := make(map[uuid.UUID]*common.Particle)
 	for _, p := range works {
-		rr := reply_result{p, delta.Seconds()}
-		r.Value = work{rr, nil}
+		work_id := uuid.NewV4()
+		rr := reply_result{p, delta.Seconds(), work_id}
+		var p_to_integrate common.Particle
+		r.Value = work{rr, &p_to_integrate}
+		work_map[work_id] = &p_to_integrate
 		r = r.Next()
 	}
 
@@ -78,7 +165,7 @@ func Integrate(replier zmq.Socket, works []common.Particle, delta time.Duration)
 			log.Println("received result")
 			result_msg := new(result_request)
 			json.Unmarshal([]byte(received), result_msg)
-			integrated_p := result_msg.Integrated
+			integrated_p := result_msg.Work.Integrated
 			current_work, _ := r.Value.(work)
 			current_work.p_next = &integrated_p
 			r.Value = current_work
@@ -112,3 +199,4 @@ func find_next_work(r *ring.Ring) (*ring.Ring, bool) {
 	}
 	return r, counter == r.Len()
 }
+*/

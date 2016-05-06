@@ -1,7 +1,5 @@
 package interfaces
 
-/*
-
 import (
 	"container/ring"
 	"encoding/json"
@@ -28,18 +26,14 @@ func worker(name, endpoint string) {
 
 		message, _ := requester.Recv(0)
 		log.Println(message, "received by", name)
-		var work_request reply
-		json.Unmarshal([]byte(message), work_request)
 		time.Sleep(time.Duration(rand.Int63n(1500)) * time.Millisecond)
 
 		integrated_p := common.Particle{
 			common.Vector3{1, 0, 0},
 			common.Vector3{1, 0, 0},
-			common.Vector3{0, 0, 0},
 			2.0,
 		}
-		work_result := result_request_params{work_request.Result.Work_id, integrated_p}
-		result := result_request{"2.0", "result", work_result, "1"}
+		result := result_request{"2.0", "result", integrated_p, "1"}
 		resultJson, _ := json.Marshal(result)
 		requester.Send(string(resultJson), 0)
 		work_done++
@@ -74,7 +68,7 @@ func TestIntegrate(t *testing.T) {
 }
 
 func TestFindNextWorkRing(t *testing.T) {
-	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second, uuid.NewV4()}
+	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second}
 	particule_2 := reply_result{common.Particle{Position: common.Vector3{2, 0, 0}}, time.Second}
 	particule_3 := reply_result{common.Particle{Position: common.Vector3{3, 0, 0}}, time.Second}
 	particule_4 := reply_result{common.Particle{Position: common.Vector3{4, 0, 0}}, time.Second}
@@ -146,4 +140,3 @@ func TestFindNextWorkRingNoMoreWorkd(t *testing.T) {
 		t.Errorf("There should be no work available")
 	}
 }
-*/
