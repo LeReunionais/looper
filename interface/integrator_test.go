@@ -1,5 +1,12 @@
 package interfaces
 
+import (
+	c "github.com/LeReunionais/looper/common"
+	"github.com/satori/go.uuid"
+	"log"
+	"testing"
+)
+
 /*
 
 import (
@@ -49,7 +56,61 @@ func worker(name, endpoint string) {
 		log.Println(name, "has done", work_done, "work")
 	}
 }
+*/
+func TestFindNextIndexFindCorrectIndex(t *testing.T) {
+	a, _ := uuid.FromString("a")
+	b, _ := uuid.FromString("b")
+	work_1 := work{a, c.Particle{}}
+	work_2 := work{b, c.Particle{}}
+	works := []work{work_1, work_2}
 
+	cases := []struct {
+		want, in int
+	}{
+		{0, 1},
+		{1, 0},
+	}
+
+	log.Println("test cases")
+	for _, cas := range cases {
+		actual_index, _ := find_next_index(works, map[uuid.UUID]c.Particle{}, cas.in)
+		if cas.want != actual_index {
+			t.Errorf("Test faild, expected '%d', got: '%d'", cas.want, actual_index)
+		}
+	}
+}
+
+func TestFindNextIndexDetectThatAllWorkIsDone(t *testing.T) {
+	a, _ := uuid.FromString("a")
+	b, _ := uuid.FromString("b")
+	d, _ := uuid.FromString("c")
+	work_1 := work{a, c.Particle{}}
+	work_2 := work{b, c.Particle{}}
+	works := []work{work_1, work_2}
+
+	full_map := map[uuid.UUID]c.Particle{
+		a: c.Particle{},
+		b: c.Particle{},
+		d: c.Particle{},
+	}
+	cases := []struct {
+		want bool
+		in   map[uuid.UUID]c.Particle
+	}{
+		{true, map[uuid.UUID]c.Particle{}},
+		{false, full_map},
+	}
+
+	log.Println("test cases")
+	for _, cas := range cases {
+		_, more_work := find_next_index(works, cas.in, 0)
+		if cas.want != more_work {
+			t.Errorf("Test faild, expected '%t', got: '%v'", cas.want, more_work)
+		}
+	}
+}
+
+/*
 func TestIntegrate(t *testing.T) {
 	particule_1 := common.Particle{Position: common.Vector3{1, 0, 0}}
 	particule_2 := common.Particle{Position: common.Vector3{2, 0, 0}}

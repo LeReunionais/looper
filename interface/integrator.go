@@ -73,6 +73,7 @@ func Init(endpoint string) *zmq.Socket {
 func find_next_index(to_integrate []work, integrated map[uuid.UUID]c.Particle, index int) (int, bool) {
 	total := len(to_integrate)
 	i := 0
+	index++
 	for {
 		if _, ok := integrated[to_integrate[index%total].UUID]; !ok {
 			break
@@ -127,76 +128,8 @@ func Update(replier zmq.Socket, particles []c.Particle, delta time.Duration) []c
 	}
 
 	results := make([]c.Particle, len(particles))
-	for _, p := range integrated {
-		results = append(results, p)
+	for _, w := range to_integrate {
+		results = append(results, integrated[w.UUID])
 	}
 	return results
 }
-
-/*
-func Integrate(replier zmq.Socket, works []common.Particle, delta time.Duration) []common.Particle {
-
-	r := ring.New(len(works))
-	work_map := make(map[uuid.UUID]*common.Particle)
-	for _, p := range works {
-		work_id := uuid.NewV4()
-		rr := reply_result{p, delta.Seconds(), work_id}
-		var p_to_integrate common.Particle
-		r.Value = work{rr, &p_to_integrate}
-		work_map[work_id] = &p_to_integrate
-		r = r.Next()
-	}
-
-	r, no_work_remaining := find_next_work(r)
-	for !no_work_remaining {
-		msg := new(request)
-		received, _ := replier.Recv(0)
-		json.Unmarshal([]byte(received), msg)
-		if msg.Method == "ready" {
-			log.Println("received ready")
-			ready_msg := new(ready_request)
-			json.Unmarshal([]byte(received), ready_msg)
-			log.Println("worker ready, we send him some work")
-			p_to_integrate, _ := r.Value.(work)
-			work := reply{"2.0", p_to_integrate.p, msg.Id}
-			workJson, _ := json.Marshal(work)
-			replier.Send(string(workJson), 0)
-		} else if msg.Method == "result" {
-			log.Println("received result")
-			result_msg := new(result_request)
-			json.Unmarshal([]byte(received), result_msg)
-			integrated_p := result_msg.Work.Integrated
-			current_work, _ := r.Value.(work)
-			current_work.p_next = &integrated_p
-			r.Value = current_work
-			replier.Send("thanks", 0)
-		}
-		r, no_work_remaining = find_next_work(r)
-	}
-
-	log.Println("Finish all work")
-
-	integrated_particules := make([]common.Particle, r.Len())
-	for i := 0; i < r.Len(); i++ {
-		integrated_particules[i] = *r.Value.(work).p_next
-	}
-	return integrated_particules
-}
-
-type work struct {
-	p      reply_result
-	p_next *common.Particle
-}
-
-func find_next_work(r *ring.Ring) (*ring.Ring, bool) {
-	r = r.Next()
-	todo, _ := r.Value.(work)
-	counter := 0
-	for todo.p_next != nil && counter < r.Len() {
-		counter++
-		r = r.Next()
-		todo, _ = r.Value.(work)
-	}
-	return r, counter == r.Len()
-}
-*/
