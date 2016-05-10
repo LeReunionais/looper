@@ -1,19 +1,10 @@
 package interfaces
 
 import (
-	c "github.com/LeReunionais/looper/common"
-	"github.com/satori/go.uuid"
-	"log"
-	"testing"
-)
-
-/*
-
-import (
-	"container/ring"
 	"encoding/json"
-	"github.com/LeReunionais/looper/common"
+	c "github.com/LeReunionais/looper/common"
 	zmq "github.com/pebbe/zmq4"
+	"github.com/satori/go.uuid"
 	"log"
 	"math/rand"
 	"testing"
@@ -28,26 +19,21 @@ func worker(name, endpoint string) {
 	work_done := 0
 
 	for {
-		ready := ready_request{"2.0", "ready", "", "1"}
+		ready := readyRequest{"2.0", "ready", name, "1"}
 		readyJson, _ := json.Marshal(ready)
 		requester.Send(string(readyJson), 0)
 		log.Println(name, "ready for work")
 
 		message, _ := requester.Recv(0)
 		log.Println(message, "received by", name)
-		var work_request reply
+		work_request := new(readyReply)
 		json.Unmarshal([]byte(message), work_request)
-		time.Sleep(time.Duration(rand.Int63n(1500)) * time.Millisecond)
-
-		integrated_p := common.Particle{
-			common.Vector3{1, 0, 0},
-			common.Vector3{1, 0, 0},
-			common.Vector3{0, 0, 0},
-			2.0,
-		}
-		work_result := result_request_params{work_request.Result.Work_id, integrated_p}
-		result := result_request{"2.0", "result", work_result, "1"}
+		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
+		log.Println(work_request)
+		resultParams := resultRequestParams{c.Particle{}, work_request.Result.WorkId}
+		result := resultRequest{"2.0", "result", resultParams, "id"}
 		resultJson, _ := json.Marshal(result)
+		log.Println("Send result", string(resultJson))
 		requester.Send(string(resultJson), 0)
 		work_done++
 		log.Println(name, "sent result")
@@ -56,22 +42,36 @@ func worker(name, endpoint string) {
 		log.Println(name, "has done", work_done, "work")
 	}
 }
-*/
+
+func TestNormalRun(t *testing.T) {
+	endpoint := "ipc://testing.integrator"
+	go worker("Ringo", endpoint)
+	go worker("Jimmy", endpoint)
+	go worker("Joe", endpoint)
+	go worker("George", endpoint)
+	go worker("Robert", endpoint)
+	socket := Init(endpoint)
+	Update(socket, make([]c.Particle, 500), time.Second)
+}
+
 func TestFindNextIndexFindCorrectIndex(t *testing.T) {
-	a, _ := uuid.FromString("a")
-	b, _ := uuid.FromString("b")
+	a := uuid.NewV4()
+	b := uuid.NewV4()
+	d := uuid.NewV4()
 	work_1 := work{a, c.Particle{}}
 	work_2 := work{b, c.Particle{}}
-	works := []work{work_1, work_2}
+	work_3 := work{d, c.Particle{}}
+	works := []work{work_1, work_2, work_3}
 
 	cases := []struct {
 		want, in int
 	}{
-		{0, 1},
 		{1, 0},
+		{2, 1},
+		{0, 2},
 	}
 
-	log.Println("test cases")
+	log.Println("Testing different index starting point")
 	for _, cas := range cases {
 		actual_index, _ := find_next_index(works, map[uuid.UUID]c.Particle{}, cas.in)
 		if cas.want != actual_index {
@@ -81,9 +81,9 @@ func TestFindNextIndexFindCorrectIndex(t *testing.T) {
 }
 
 func TestFindNextIndexDetectThatAllWorkIsDone(t *testing.T) {
-	a, _ := uuid.FromString("a")
-	b, _ := uuid.FromString("b")
-	d, _ := uuid.FromString("c")
+	a := uuid.NewV4()
+	b := uuid.NewV4()
+	d := uuid.NewV4()
 	work_1 := work{a, c.Particle{}}
 	work_2 := work{b, c.Particle{}}
 	works := []work{work_1, work_2}
@@ -91,6 +91,13 @@ func TestFindNextIndexDetectThatAllWorkIsDone(t *testing.T) {
 	full_map := map[uuid.UUID]c.Particle{
 		a: c.Particle{},
 		b: c.Particle{},
+	}
+
+	half_map := map[uuid.UUID]c.Particle{
+		a: c.Particle{},
+	}
+	not_correct_map := map[uuid.UUID]c.Particle{
+		a: c.Particle{},
 		d: c.Particle{},
 	}
 	cases := []struct {
@@ -99,112 +106,32 @@ func TestFindNextIndexDetectThatAllWorkIsDone(t *testing.T) {
 	}{
 		{true, map[uuid.UUID]c.Particle{}},
 		{false, full_map},
+		{true, half_map},
+		{true, not_correct_map},
 	}
 
-	log.Println("test cases")
+	log.Println("Testing different result map")
 	for _, cas := range cases {
 		_, more_work := find_next_index(works, cas.in, 0)
 		if cas.want != more_work {
-			t.Errorf("Test faild, expected '%t', got: '%v'", cas.want, more_work)
+			t.Errorf("Test failed, expected '%t', got: '%v'", cas.want, more_work)
 		}
 	}
 }
 
-/*
-func TestIntegrate(t *testing.T) {
-	particule_1 := common.Particle{Position: common.Vector3{1, 0, 0}}
-	particule_2 := common.Particle{Position: common.Vector3{2, 0, 0}}
-	particule_3 := common.Particle{Position: common.Vector3{3, 0, 0}}
-	particule_4 := common.Particle{Position: common.Vector3{4, 0, 0}}
-	particule_5 := common.Particle{Position: common.Vector3{5, 0, 0}}
-	particules := []common.Particle{
-		particule_1,
-		particule_2,
-		particule_3,
-		particule_4,
-		particule_5,
-	}
-	go worker("Joe", "ipc://testing.integrator")
-	go worker("Ringo", "ipc://testing.integrator")
-	go worker("Harry", "ipc://testing.integrator")
-	go worker("George", "ipc://testing.integrator")
-	result := Integrate("ipc://testing.integrator", particules, time.Second)
-	for _, p := range result {
-		log.Println(p)
-	}
-}
-
-func TestFindNextWorkRing(t *testing.T) {
-	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second, uuid.NewV4()}
-	particule_2 := reply_result{common.Particle{Position: common.Vector3{2, 0, 0}}, time.Second}
-	particule_3 := reply_result{common.Particle{Position: common.Vector3{3, 0, 0}}, time.Second}
-	particule_4 := reply_result{common.Particle{Position: common.Vector3{4, 0, 0}}, time.Second}
-	particule_5 := reply_result{common.Particle{Position: common.Vector3{5, 0, 0}}, time.Second}
-	var particule_3_result = new(common.Particle)
-	particules := []work{
-		work{particule_1, nil},
-		work{particule_2, nil},
-		work{particule_3, particule_3_result},
-		work{particule_4, nil},
-		work{particule_5, nil},
-	}
-
-	r := ring.New(len(particules))
-	for _, p := range particules {
-		r.Value = p
-		r = r.Next()
-	}
-
+func TestFindNextWithEmptyListRequest(t *testing.T) {
 	cases := []struct {
-		want int
+		want bool
+		in   []work
 	}{
-		{2}, {4}, {5}, {1}, {2},
+		{false, []work{}},
 	}
-	for _, c := range cases {
-		r, _ = find_next_work(r)
-		todo, _ := r.Value.(work)
-		if todo.p.Particle.Position.X != float64(c.want) {
-			t.Errorf("find_next_work(r).p.Position.X return %f, want %d", todo.p.Particle.Position.X, c.want)
+
+	log.Println("Testing different request list")
+	for _, cas := range cases {
+		_, more_work := find_next_index(cas.in, map[uuid.UUID]c.Particle{}, 0)
+		if cas.want != more_work {
+			t.Errorf("Test failed, expected '%t', got: '%v'", cas.want, more_work)
 		}
 	}
-
 }
-
-func TestFindNextWorkRingNoMoreWorkd(t *testing.T) {
-	particule_1 := reply_result{common.Particle{Position: common.Vector3{1, 0, 0}}, time.Second}
-	particule_2 := reply_result{common.Particle{Position: common.Vector3{2, 0, 0}}, time.Second}
-	particule_3 := reply_result{common.Particle{Position: common.Vector3{3, 0, 0}}, time.Second}
-	particule_4 := reply_result{common.Particle{Position: common.Vector3{4, 0, 0}}, time.Second}
-	particule_5 := reply_result{common.Particle{Position: common.Vector3{5, 0, 0}}, time.Second}
-	var particule_1_result = new(common.Particle)
-	var particule_2_result = new(common.Particle)
-	var particule_3_result = new(common.Particle)
-	var particule_4_result = new(common.Particle)
-	var particule_5_result = new(common.Particle)
-	particules := []work{
-		work{particule_1, particule_1_result},
-		work{particule_2, particule_2_result},
-		work{particule_3, particule_3_result},
-		work{particule_4, particule_4_result},
-		work{particule_5, particule_5_result},
-		work{particule_5, nil},
-	}
-	r := ring.New(len(particules))
-	for _, p := range particules {
-		r.Value = p
-		r = r.Next()
-	}
-	r, no_more_work := find_next_work(r)
-	if no_more_work {
-		t.Errorf("There should be some work available")
-	}
-	todo, _ := r.Value.(work)
-	todo.p_next = particule_5_result
-	r.Value = todo
-
-	_, no_more_work = find_next_work(r)
-	if !no_more_work {
-		t.Errorf("There should be no work available")
-	}
-}
-*/

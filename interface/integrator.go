@@ -35,13 +35,14 @@ type readyResult struct {
 }
 
 type resultRequest struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  struct {
-		Particle c.Particle `json:"particle"`
-		WorkId   uuid.UUID  `json:"workId"`
-	} `json:"params"`
-	Id string `json:"id"`
+	Jsonrpc string              `json:"jsonrpc"`
+	Method  string              `json:"method"`
+	Params  resultRequestParams `json:"params"`
+	Id      string              `json:"id"`
+}
+type resultRequestParams struct {
+	Particle c.Particle `json:"particle"`
+	WorkId   uuid.UUID  `json:"workId"`
 }
 
 type resultReply struct {
@@ -70,15 +71,18 @@ func Init(endpoint string) *zmq.Socket {
 	return replier
 }
 
-func find_next_index(to_integrate []work, integrated map[uuid.UUID]c.Particle, index int) (int, bool) {
+func find_next_index(to_integrate []work, integrated map[uuid.UUID]c.Particle, index int) (work_index int, work_pending bool) {
 	total := len(to_integrate)
+	if total == 0 {
+		return 0, false
+	}
 	i := 0
 	index++
 	for {
-		if _, ok := integrated[to_integrate[index%total].UUID]; !ok {
+		if i == total {
 			break
 		}
-		if i == total {
+		if _, ok := integrated[to_integrate[index%total].UUID]; !ok {
 			break
 		}
 		index++
@@ -87,9 +91,9 @@ func find_next_index(to_integrate []work, integrated map[uuid.UUID]c.Particle, i
 	return index % total, i != total
 }
 
-func Update(replier zmq.Socket, particles []c.Particle, delta time.Duration) []c.Particle {
+func Update(replier *zmq.Socket, particles []c.Particle, delta time.Duration) []c.Particle {
 	log.Println("Init data stucture")
-	to_integrate := make([]work, len(particles))
+	to_integrate := make([]work, 0)
 	integrated := make(map[uuid.UUID]c.Particle)
 
 	for _, p := range particles {
@@ -101,11 +105,11 @@ func Update(replier zmq.Socket, particles []c.Particle, delta time.Duration) []c
 	log.Println("Loop and request for integration")
 	iterator_index, work_pending := find_next_index(to_integrate, integrated, 0)
 	for work_pending {
+		log.Println("Waiting for request")
 		req_msg, _ := replier.Recv(0)
-		log.Println("request received", req_msg)
 		req := new(request)
 		json.Unmarshal([]byte(req_msg), req)
-		log.Println("Received", req.Method, "request")
+		log.Println("Received", req_msg)
 		if req.Method == "ready" {
 			worker_ready_req := new(readyRequest)
 			json.Unmarshal([]byte(req_msg), worker_ready_req)
@@ -123,6 +127,10 @@ func Update(replier zmq.Socket, particles []c.Particle, delta time.Duration) []c
 		} else if req.Method == "result" {
 			result_req := new(resultRequest)
 			json.Unmarshal([]byte(req_msg), result_req)
+			integrated[result_req.Params.WorkId] = result_req.Params.Particle
+			replier.Send("Thanks", 0)
+		} else {
+			replier.Send("??", 0)
 		}
 		iterator_index, work_pending = find_next_index(to_integrate, integrated, iterator_index)
 	}
