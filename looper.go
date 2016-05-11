@@ -29,7 +29,7 @@ func main() {
 		time.Sleep(100 * time.Millisecond)
 		end := time.Now()
 		delta := end.Sub(start)
-		updated_particles := interfaces.Integrate(*replier, w.Particles, delta)
+		updated_particles := interfaces.Update(replier, w.Particles, delta)
 		w.Particles = updated_particles
 		start = end
 	}
